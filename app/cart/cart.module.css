@@ -60,3 +60,18 @@
 }
 
 .pay { text-decoration: none; }
+@media (max-width: 768px) {
+  .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .controls {
+    justify-content: flex-start;
+  }
+
+  .sum {
+    text-align: left;
+  }
+}
