@@ -10,11 +10,9 @@ import { branches } from "../libs/branches";
 type HandoverMode = "box" | "seller_scan";
 
 function usedKey(branchId: string, slot: string) {
-  // slot da daxil olsun ki, fərqli vaxtlarda fərqli rezerv kimi davransın
   const safeSlot = slot.replaceAll(" ", "_").replaceAll(":", "_");
   return `sr_used_boxes_${branchId}_${safeSlot}`;
 }
-
 function getUsed(branchId: string, slot: string) {
   try {
     const raw = localStorage.getItem(usedKey(branchId, slot));
@@ -23,19 +21,31 @@ function getUsed(branchId: string, slot: string) {
     return 0;
   }
 }
-
 function setUsed(branchId: string, slot: string, val: number) {
   try {
     localStorage.setItem(usedKey(branchId, slot), String(val));
   } catch {}
 }
 
+type Step = { title: string; hint: string };
+
 export default function SuccessPage() {
   const { total, count, clear } = useCart();
   const params = useSearchParams();
   const router = useRouter();
 
-  const orderId = params.get("orderId") || `SR-${Date.now()}`;
+  // ✅ hydration safe: əvvəlcə mount gözlə
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // ✅ orderId: render zamanı Date.now() istifadə etmirik
+  const [orderId, setOrderId] = useState<string>("");
+
+  useEffect(() => {
+    const fromUrl = params.get("orderId");
+    if (fromUrl) setOrderId(fromUrl);
+    else setOrderId(`SR-${Date.now()}`); // yalnız client-də
+  }, [params]);
 
   const [branchId, setBranchId] = useState(branches[0].id);
   const [slot, setSlot] = useState("4 saat sonra");
@@ -44,7 +54,10 @@ export default function SuccessPage() {
   const [reservedBoxNumber, setReservedBoxNumber] = useState<number | null>(null);
   const [qr, setQr] = useState<string>("");
 
-  // eyni session-da təkrar rezerv etməsin deyə
+  // timeline
+  const [activeStep, setActiveStep] = useState(0);
+  const [times, setTimes] = useState<string[]>([]);
+
   const reservedRef = useRef<string | null>(null);
 
   const branch = useMemo(
@@ -52,75 +65,132 @@ export default function SuccessPage() {
     [branchId]
   );
 
-  const availability = useMemo(() => {
-    // localStorage əsasında used count çıxır
-    const used = typeof window !== "undefined" ? getUsed(branchId, slot) : 0;
-    const available = Math.max(0, branch.boxCapacity - used);
-    return { used, available, capacity: branch.boxCapacity };
-  }, [branchId, slot, branch.boxCapacity]);
-
-  // Box rezerv etmə cəhdi (Success açılan kimi / branch-slot dəyişəndə)
+  // Box rezerv etmə (yalnız mount olandan sonra)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!mounted) return;
 
     const reserveKey = `${branchId}__${slot}`;
-
-    // Əgər artıq bu branch-slot üçün rezerv edib, yenidən etmə
     if (reservedRef.current === reserveKey) return;
-
-    // Əvvəlki rezervi dəyişirsə, köhnəni geri qaytarmırıq (demo sadə saxlanılır)
-    // İstəsən “slot dəyişəndə köhnəni release et” də edərik.
 
     const used = getUsed(branchId, slot);
     const available = Math.max(0, branch.boxCapacity - used);
 
     if (available > 0) {
-      // rezerv et
       setUsed(branchId, slot, used + 1);
       setHandover("box");
-      setReservedBoxNumber(used + 1); // demo üçün "used+1" box nömrəsi kimi
+      setReservedBoxNumber(used + 1);
     } else {
       setHandover("seller_scan");
       setReservedBoxNumber(null);
     }
 
     reservedRef.current = reserveKey;
-  }, [branchId, slot, branch.boxCapacity]);
+  }, [mounted, branchId, slot, branch.boxCapacity]);
 
-  // QR payload
+  const steps: Step[] = useMemo(() => {
+    const base: Step[] = [
+      { title: "Ödəniş təsdiqləndi", hint: "Sifariş sistemdə yaradıldı" },
+      { title: "Sifariş marketə göndərildi", hint: "Filiala bildiriş getdi" },
+      { title: "Məhsullar yığılır", hint: "Satıcı məhsulları seçir" },
+      { title: "Paketləndi", hint: "Məhsullar hazırlandı" },
+    ];
+
+    if (handover === "box") {
+      return [
+        ...base,
+        {
+          title: `Box-a yerləşdirildi${reservedBoxNumber ? ` (Box #${reservedBoxNumber})` : ""}`,
+          hint: "QR ilə box açılacaq",
+        },
+        { title: "Pickup üçün hazırdır", hint: "Gəlib QR oxudub götürə bilərsən" },
+      ];
+    }
+
+    return [
+      ...base,
+      { title: "Box yoxdur", hint: "Satıcı QR ilə təhvil verəcək" },
+      { title: "Pickup üçün hazırdır", hint: "Marketdə satıcıya yaxınlaş" },
+    ];
+  }, [handover, reservedBoxNumber]);
+
+  // Timeline animasiya (yalnız mount olandan sonra)
+  useEffect(() => {
+    if (!mounted) return;
+
+    setActiveStep(0);
+    setTimes([]);
+
+    const nowStr = () =>
+      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    const localTimes: string[] = [];
+    localTimes[0] = nowStr();
+    setTimes([...localTimes]);
+
+    const id = setInterval(() => {
+      setActiveStep((prev) => {
+        const next = prev + 1;
+        if (next >= steps.length) {
+          clearInterval(id);
+          return prev;
+        }
+        localTimes[next] = nowStr();
+        setTimes([...localTimes]);
+        return next;
+      });
+    }, 1200);
+
+    return () => clearInterval(id);
+  }, [mounted, branchId, slot, handover, steps.length]);
+
   const payload = useMemo(() => {
     return JSON.stringify({
-      orderId,
+      orderId: orderId || "SR-PENDING",
       branch: branch.name,
       slot,
-      total: Number(total.toFixed(2)),
-      count,
-      handover, // "box" və ya "seller_scan"
-      boxNumber: reservedBoxNumber, // varsa, box nömrəsi
+      total: Number((mounted ? total : 0).toFixed(2)),
+      count: mounted ? count : 0,
+      handover,
+      boxNumber: reservedBoxNumber,
+      status: steps[Math.min(activeStep, steps.length - 1)]?.title,
       action: handover === "box" ? "OPEN_BOX" : "SELLER_SCAN",
     });
-  }, [orderId, branch.name, slot, total, count, handover, reservedBoxNumber]);
+  }, [orderId, branch.name, slot, total, count, mounted, handover, reservedBoxNumber, steps, activeStep]);
 
   useEffect(() => {
+    if (!mounted) return;
     QRCode.toDataURL(payload, { width: 240, margin: 1 })
       .then(setQr)
       .catch(() => setQr(""));
-  }, [payload]);
+  }, [mounted, payload]);
+
+  const availability = useMemo(() => {
+    if (!mounted) return { used: 0, available: branch.boxCapacity, capacity: branch.boxCapacity };
+    const used = getUsed(branchId, slot);
+    const available = Math.max(0, branch.boxCapacity - used);
+    return { used, available, capacity: branch.boxCapacity };
+  }, [mounted, branchId, slot, branch.boxCapacity]);
 
   function finishDemo() {
-    // demo bitəndə cart təmizlə
     clear();
     router.push("/products");
+  }
+
+  // ✅ mount olmadan SSR ilə uyğun “sabit” render (mismatch olmur)
+  if (!mounted) {
+    return (
+      <div className={styles.wrap}>
+        <h1>Ödəniş tamamlandı ✅</h1>
+        <p className={styles.sub}>Yüklənir...</p>
+      </div>
+    );
   }
 
   return (
     <div className={styles.wrap}>
       <h1>Ödəniş tamamlandı ✅</h1>
-      <p className={styles.sub}>
-        İndi marketə gəl, QR-u oxut və sifarişi götür.
-      </p>
+      <p className={styles.sub}>İndi marketə gəl, QR-u oxut və sifarişi götür.</p>
 
-      {/* ⚠️ Box yoxdur banner */}
       {handover === "seller_scan" && (
         <div className={styles.alert}>
           <div className={styles.alertTitle}>Box yoxdur</div>
@@ -130,8 +200,31 @@ export default function SuccessPage() {
         </div>
       )}
 
+      <div className={styles.timeline}>
+        <div className={styles.tlTitle}>Pickup statusu</div>
+        <div className={styles.steps}>
+          {steps.map((s, idx) => {
+            const done = idx < activeStep;
+            const active = idx === activeStep;
+
+            const dotClass =
+              done ? `${styles.dot} ${styles.dotDone}` : active ? `${styles.dot} ${styles.dotActive}` : styles.dot;
+
+            return (
+              <div key={idx} className={styles.step}>
+                <span className={dotClass} />
+                <div>
+                  <div className={styles.stepText}>{s.title}</div>
+                  <div className={styles.stepHint}>{s.hint}</div>
+                </div>
+                <div className={styles.time}>{times[idx] ?? ""}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className={styles.grid}>
-        {/* Sol panel */}
         <div className={styles.panel}>
           <h3>Pickup seçimi</h3>
 
@@ -140,7 +233,7 @@ export default function SuccessPage() {
             className={styles.panelSelect}
             value={branchId}
             onChange={(e) => {
-              reservedRef.current = null; // branch dəyişəndə yenidən rezerv etsin
+              reservedRef.current = null;
               setBranchId(e.target.value);
             }}
           >
@@ -156,7 +249,7 @@ export default function SuccessPage() {
             className={styles.panelSelect}
             value={slot}
             onChange={(e) => {
-              reservedRef.current = null; // slot dəyişəndə yenidən rezerv etsin
+              reservedRef.current = null;
               setSlot(e.target.value);
             }}
           >
@@ -170,19 +263,17 @@ export default function SuccessPage() {
               <span className={styles.metaKey}>Order:</span> <b>{orderId}</b>
             </div>
             <div className={styles.metaLine}>
-              <span className={styles.metaKey}>Məhsul sayı:</span> <b>{count}</b>
+              <span className={styles.metaKey}>Məhsul sayı:</span>{" "}
+              <b suppressHydrationWarning>{count}</b>
             </div>
             <div className={styles.metaLine}>
-              <span className={styles.metaKey}>Toplam:</span> <b>{total.toFixed(2)} ₼</b>
+              <span className={styles.metaKey}>Toplam:</span>{" "}
+              <b suppressHydrationWarning>{total.toFixed(2)} ₼</b>
             </div>
 
             <div className={styles.metaLine}>
               <span className={styles.metaKey}>Box statusu:</span>{" "}
-              <b>
-                {handover === "box"
-                  ? `Rezerv edildi (Box #${reservedBoxNumber})`
-                  : "Mövcud deyil"}
-              </b>
+              <b>{handover === "box" ? `Rezerv edildi (Box #${reservedBoxNumber})` : "Mövcud deyil"}</b>
             </div>
 
             <div className={styles.metaLine}>
@@ -193,18 +284,21 @@ export default function SuccessPage() {
             </div>
           </div>
 
-          
+          <button className="btn btnGhost" onClick={finishDemo}>
+            Demo bitdi (Səbəti sıfırla)
+          </button>
         </div>
 
-        {/* Sağ panel */}
         <div className={styles.panel}>
           <h3>QR kod</h3>
-
           <div className={styles.qrBox}>
             {qr ? <img className={styles.qrImg} src={qr} alt="QR" /> : "QR hazırlanır..."}
           </div>
-
-          
+          <div className={styles.note}>
+            {handover === "box"
+              ? "Video üçün: “Statuslar gedir, sonra QR box-u açır və müştəri götürür.”"
+              : "Video üçün: “Box yoxdur, satıcı QR ilə təhvil verir.”"}
+          </div>
         </div>
       </div>
     </div>
