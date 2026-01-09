@@ -1,89 +1,114 @@
 .wrap {
-    padding-top: 16px;
+  padding-top: 16px;
 }
 
 .sub {
-    color: var(--muted);
-    margin-top: 6px;
+  color: var(--muted);
+  margin-top: 6px;
 }
 
+/* ===== Alert (Box yoxdur mesajı) ===== */
+.alert {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.alertTitle {
+  font-weight: 900;
+  color: #9a3412;
+  margin-bottom: 4px;
+}
+
+.alertText {
+  color: #7c2d12;
+  font-weight: 600;
+}
+
+/* ===== Layout ===== */
 .grid {
-    display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
-    gap: 14px;
-    margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 14px;
+  margin-top: 14px;
 }
 
 .panel {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* ✅ PURE: label artıq tək deyil, panel class-ına bağlıdır */
+/* ===== Form elementləri (PURE class) ===== */
 .panelLabel {
-    font-weight: 800;
+  font-weight: 800;
 }
 
 .panelSelect {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 10px 12px;
-    outline: none;
-    background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  background: #ffffff;
 }
 
+/* ===== Meta info ===== */
 .meta {
-    border: 1px dashed var(--border);
-    border-radius: 14px;
-    padding: 12px;
-    display: grid;
-    gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
 }
 
 .metaLine {
-    display: flex;
-    gap: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .metaKey {
-    color: var(--muted);
+  color: var(--muted);
 }
 
+/* ===== QR ===== */
 .qrBox {
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 280px;
-    background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 280px;
+  background: #fafafa;
 }
 
 .qrImg {
-    width: 240px;
-    height: 240px;
+  width: 240px;
+  height: 240px;
 }
 
 .note {
-    font-size: 12px;
-    color: var(--muted);
+  font-size: 12px;
+  color: var(--muted);
 }
 
+/* ===== Responsive ===== */
 @media (max-width: 900px) {
-    .grid {
-        grid-template-columns: 1fr;
-    }
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
-    .qrImg {
-        width: 200px;
-        height: 200px;
-    }
+  .qrImg {
+    width: 200px;
+    height: 200px;
+  }
 }
