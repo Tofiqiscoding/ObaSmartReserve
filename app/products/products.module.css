@@ -1,4 +1,6 @@
-.wrap { padding-top: 16px; }
+.wrap {
+  padding-top: 16px;
+}
 
 .top {
   display: flex;
@@ -33,15 +35,28 @@
   gap: 10px;
 }
 
-.img {
-  height: 120px;
-  background: #eef2f7;
+.imgWrap {
+  position: relative;
+  height: 140px;
   border-radius: 14px;
+  overflow: hidden;
+  background: #eef2f7;
   border: 1px solid #e6e9ef;
 }
 
-.name { font-weight: 800; }
-.price { color: var(--green); font-weight: 900; }
+.img {
+  object-fit: cover;
+}
+
+
+.name {
+  font-weight: 800;
+}
+
+.price {
+  color: var(--green);
+  font-weight: 900;
+}
 
 .qtyRow {
   display: flex;
@@ -55,6 +70,7 @@
   text-align: center;
   font-weight: 900;
 }
+
 @media (max-width: 1024px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
