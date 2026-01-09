@@ -284,9 +284,7 @@ export default function SuccessPage() {
             </div>
           </div>
 
-          <button className="btn btnGhost" onClick={finishDemo}>
-            Demo bitdi (Səbəti sıfırla)
-          </button>
+          
         </div>
 
         <div className={styles.panel}>
@@ -294,11 +292,7 @@ export default function SuccessPage() {
           <div className={styles.qrBox}>
             {qr ? <img className={styles.qrImg} src={qr} alt="QR" /> : "QR hazırlanır..."}
           </div>
-          <div className={styles.note}>
-            {handover === "box"
-              ? "Video üçün: “Statuslar gedir, sonra QR box-u açır və müştəri götürür.”"
-              : "Video üçün: “Box yoxdur, satıcı QR ilə təhvil verir.”"}
-          </div>
+          
         </div>
       </div>
     </div>
